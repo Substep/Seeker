@@ -13,12 +13,14 @@ client.on('ready', () => {
 });
 
 client.on("guildCreate", guild => {
+  db.set(`settings_${guild.id}`, { prefix: '+'})
   let users = 0;
   client.guilds.map(g => users += g.memberCount);
   client.user.setActivity('' + users.toLocaleString() + " Users", {type: 'WATCHING'});
 });
 
 client.on("guildDelete", guild => {
+  db.set(`settings_${guild.id}`, { prefix: '+'})
   let users = 0;
   client.guilds.map(g => users += g.memberCount);
   client.user.setActivity('' + users.toLocaleString() + " Users", {type: 'WATCHING'});
@@ -49,15 +51,20 @@ client.on('guildMemberAdd', async member => {
 });
 
 client.on("message", async message => {
+  
+  let servprefix = await db.fetch(`settings_${message.guild.id}`, { target: '.prefix' });
 
   if(message.author.bot) return;
+  
+  if (message.channel.type === "dm") return
 
-  if(message.content.indexOf(config.prefix) !== 0) return;
+  if(message.content.indexOf(servprefix) !== 0) return;
 
-  const args = message.content.slice(config.prefix.length).trim().split(/ +/g);
+  const args = message.content.slice(servprefix.length).trim().split(/ +/g);
   const command = args.shift().toLowerCase();
 
   if(command === "help") {
+    let servprefix = await db.fetch(`settings_${message.guild.id}`, { target: '.prefix' });
     const embed = new Discord.RichEmbed()
       .setColor('277ECD')
       .setTitle('Seeker Help')
@@ -82,17 +89,23 @@ client.on("message", async message => {
             .addField(`${config.prefix}ping`, "Checks your ping", true)
             .addField(`${config.prefix}stats`, "Shows stats of the bot", true);
             botmessage.delete()
-            message.channel.send(command);
-        }
+            const commandmessage = message.channel.send(command)
+            }
         if (userreaction.emoji.name === '2⃣') {
-            botmessage.reply('Random');
+          const settings = new Discord.RichEmbed()
+            .setColor('277ECD')
+            .setTitle('Seeker Settings')
+            .addField(`Prefix`, servprefix, true)
+            .addField(`${config.prefix}ping`, "Checks your ping", true)
+            .addField(`${config.prefix}stats`, "Shows stats of the bot", true);
+            botmessage.delete()
+            const settingsmessage = message.channel.send(settings)
         }
         if (userreaction.emoji.name === '3⃣') {
             botmessage.reply('Some Message');
         }
-    })
+        })
       .catch(collected => {
-        console.log(`After a 15 seconds, only ${collected.size} out of 1 reacted.`);
         message.reply('You didn\'t react to the message within the time period.');
     });
   }
@@ -108,6 +121,14 @@ client.on("message", async message => {
         .addField('Users', users.toLocaleString(), true)
         .addField('Channels', channels.toLocaleString(), true);
     message.channel.send(embed);
+  }
+  if(command === "prefix") {
+    if (!message.member.hasPermission("MANAGE_SERVER")) return message.reply('you don\'t have permission to change server prefix');
+    if (!args.join(' ')) return message.reply('you need to specify a prefix.')
+    let newprefix = message.content.split(" ").slice(1, 2)[0];
+    db.set(`settings_${message.guild.id}`, { prefix: newprefix})
+    let servprefix = await db.fetch(`settings_${message.guild.id}`, { target: '.prefix' });
+    message.reply((`this server's prefix has been changed to \`${servprefix}\`.`));
   }
 });
 
