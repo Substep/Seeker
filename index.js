@@ -75,9 +75,9 @@ client.on("message", async message => {
       .then(collected => {
         const reaction = collected.first();
         if (reaction.emoji.name === '1⃣') {
-          const embed = new Discord.RichEmbed()
+          const command = new Discord.RichEmbed()
             .setColor('277ECD')
-            .setTitle('Seeker Help')
+            .setTitle('Seeker Commands')
             .addField('Commands:', "React with :one:", true)
             .addField('Settings:', "React with :two:", true)
             .addField('Info:', "React with :three:", true);
@@ -91,12 +91,11 @@ client.on("message", async message => {
         }
         if (reaction.emoji.name === '3⃣') {
             message.reply('you reacted with a thumdbs up.')
-            console.error;
+            
         }
     })
       .catch(collected => {
-        message.reply('You didn\'t react to the message within the time period.')
-        console.error;
+        message.reply('You didn\'t react to the message within the time period.');
     });
   }
   if(command === "stats") {
