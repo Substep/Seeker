@@ -13,6 +13,9 @@ client.on('ready', () => {
 });
 
 client.on("guildCreate", guild => {
+  db.set(`settings_${guild.id}`, { join: 'Looks like this is your first time here ${member.user} at **${member.guild.name}**, welcome to the server!, Welcome ${member.user} to **${member.guild.name}**!, Hello there ${member.user}, welcome to **${member.guild.name}**!'})
+  db.set(`settings_${guild.id}`, { joined: 'Welcome back to **${member.guild.name}** ${member.user}!, Hey is it just me or is ${member.user}\'s face similar? Oh well welcome to **${member.guild.name}**!, I\'ve seen you before ${member.user}, welcome back to **${member.guild.name}**!'})
+  db.set(`settings_${guild.id}`, { leave: 'Looks like ${member.user} has left **${member.guild.name}**, bye bye., Uh oh ${member.user} has escaped from **${member.guild.name}**, after them now!, ${member.user} has gone away from **${member.guild.name}**.'})
   db.set(`settings_${guild.id}`, { prefix: '+'})
   let users = 0;
   client.guilds.map(g => users += g.memberCount);
@@ -20,15 +23,19 @@ client.on("guildCreate", guild => {
 });
 
 client.on("guildDelete", guild => {
+  db.set(`settings_${guild.id}`, { join: 'Looks like this is your first time here ${member.user} at **${member.guild.name}**, welcome to the server!|| Welcome ${member.user} to **${member.guild.name}**!|| Hello there ${member.user}, welcome to **${member.guild.name}**!'})
+  db.set(`settings_${guild.id}`, { joined: 'Welcome back to **${member.guild.name}** ${member.user}!|| Hey is it just me or is ${member.user}\'s face similar? Oh well welcome to **${member.guild.name}**!|| I\'ve seen you before ${member.user}, welcome back to **${member.guild.name}**!'})
+  db.set(`settings_${guild.id}`, { leave: 'Looks like ${member.user} has left **${member.guild.name}**, bye bye.|| Uh oh ${member.user} has escaped from **${member.guild.name}**, after them now!|| ${member.user} has gone away from **${member.guild.name}**.'})
   db.set(`settings_${guild.id}`, { prefix: '+'})
   let users = 0;
   client.guilds.map(g => users += g.memberCount);
   client.user.setActivity('' + users.toLocaleString() + " Users", {type: 'WATCHING'});
 });
 
-client.on('guildMemberRemove', member => {
+client.on('guildMemberRemove', async member => {
   db.set(`roles_${member.id}`, member._roles)
-  let replies = [`Looks like ${member.user} has left **${member.guild.name}**, bye bye.`, `Uh oh ${member.user} has escaped from **${member.guild.name}**, after them now!`, `${member.user} has gone away from **${member.guild.name}**.`]
+  let servleave = await db.fetch(`settings_${member.guild.id}`, { target: '.leave' });
+  let replies = [servleave]
   let result = Math.floor((Math.random() * replies.length));
   client.channels.get("433348180428455946").send(replies[result])
 });
@@ -51,6 +58,33 @@ client.on('guildMemberAdd', async member => {
 });
 
 client.on("message", async message => {
+  let servleave = await db.fetch(`settings_${message.guild.id}`, { target: '.leave' });
+  let servprefix = await db.fetch(`settings_${message.guild.id}`, { target: '.prefix' });
+  const clean = text => {
+  if (typeof(text) === "string")
+    return text.replace(/`/g, "`" + String.fromCharCode(8203)).replace(/@/g, "@" + String.fromCharCode(8203));
+  else
+      return text;
+}
+  const args = message.content.split(" ").slice(1);
+
+  if (message.content.startsWith(servprefix + "eval")) {
+    if(message.author.id !== config.ownerID) return;
+    try {
+      const code = args.join(" ");
+      let evaled = eval(code);
+
+      if (typeof evaled !== "string")
+        evaled = require("util").inspect(evaled);
+
+      message.channel.send(clean(evaled), {code:"xl"});
+    } catch (err) {
+      message.channel.send(`\`ERROR\` \`\`\`xl\n${clean(err)}\n\`\`\``);
+    }
+  }
+});
+
+client.on("message", async message => {
   
   let servprefix = await db.fetch(`settings_${message.guild.id}`, { target: '.prefix' });
 
@@ -64,7 +98,6 @@ client.on("message", async message => {
   const command = args.shift().toLowerCase();
 
   if(command === "help") {
-    let servprefix = await db.fetch(`settings_${message.guild.id}`, { target: '.prefix' });
     const embed = new Discord.RichEmbed()
       .setColor('277ECD')
       .setTitle('Seeker Help')
@@ -85,9 +118,10 @@ client.on("message", async message => {
           const command = new Discord.RichEmbed()
             .setColor('277ECD')
             .setTitle('Seeker Commands')
-            .addField(`${config.prefix}help`, "Shows this message", true)
-            .addField(`${config.prefix}ping`, "Checks your ping", true)
-            .addField(`${config.prefix}stats`, "Shows stats of the bot", true);
+            .addField(`${servprefix}help`, "Shows help categories", true)
+            .addField(`${servprefix}ping`, "Checks your ping", true)
+            .addField(`${servprefix}stats`, "Shows stats of the bot", true)
+            .addField(`${servprefix}prefix`, "Changes prefix of bot", true);
             botmessage.delete()
             const commandmessage = message.channel.send(command)
             }
@@ -95,20 +129,34 @@ client.on("message", async message => {
           const settings = new Discord.RichEmbed()
             .setColor('277ECD')
             .setTitle('Seeker Settings')
-            .addField(`Prefix`, servprefix, true)
-            .addField(`${config.prefix}ping`, "Checks your ping", true)
-            .addField(`${config.prefix}stats`, "Shows stats of the bot", true);
+            .addField('Prefix', servprefix, true)
+            .addField('${servprefix}ping', "Checks your ping", true)
+            .addField('${servprefix}stats', "Shows stats of the bot", true);
             botmessage.delete()
             const settingsmessage = message.channel.send(settings)
         }
         if (userreaction.emoji.name === '3⃣') {
-            botmessage.reply('Some Message');
+          const info = new Discord.RichEmbed()
+            .setColor('277ECD')
+            .setTitle('Seeker Information')
+            .addField('Created by', 'Substep#0557', true)
+            .addField('Created on', '6/27/18', true)
+            botmessage.delete()
+            const infomessage = message.channel.send(info)
         }
         })
       .catch(collected => {
-        message.reply('You didn\'t react to the message within the time period.');
+        message.delete()
+        botmessage.delete()
+        message.reply('You didn\'t react to the message within the time period.').then(message => {
+        message.delete(10000)
+  });
     });
   }
+  if(command === "ping") {
+    const m = await message.channel.send('🏓 Ping? <a:discordloading:439643878803505162>');
+    m.edit(`🏓 Pong! (Roundtrip: ${m.createdTimestamp - message.createdTimestamp}ms | One-way: ${~~client.ping}ms)`);
+}
   if(command === "stats") {
     let servers = client.guilds.size;
     let users = 0;
@@ -127,7 +175,6 @@ client.on("message", async message => {
     if (!args.join(' ')) return message.reply('you need to specify a prefix.')
     let newprefix = message.content.split(" ").slice(1, 2)[0];
     db.set(`settings_${message.guild.id}`, { prefix: newprefix})
-    let servprefix = await db.fetch(`settings_${message.guild.id}`, { target: '.prefix' });
     message.reply((`this server's prefix has been changed to \`${servprefix}\`.`));
   }
 });
